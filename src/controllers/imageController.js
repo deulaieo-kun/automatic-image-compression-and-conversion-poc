@@ -60,63 +60,42 @@ const uploadToAzure = async (file) => {
 };
 
 // Function to handle image upload
+const sharp = require('sharp');
+
 exports.uploadImage = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        const imageId = uuidv4(); // Generate unique image ID
-        const filename = req.file.filename; // Get the file's name
-        const filePath = `/uploads/${filename}`; // Local file path
-        let uploadResponse = { image_id: imageId, filename, destination: '', url: '' };
+        const imageId = uuidv4();
+        const originalFilename = req.file.filename;
+        const compressedFilename = `${imageId}.webp`;
+        const compressedPath = path.join(__dirname, '../public/uploads', compressedFilename);
 
-        // Upload to S3
-        if (process.env.UPLOAD_DEST === 's3' || process.env.UPLOAD_DEST === 'both') {
-            if (s3) {
-                const s3Response = await uploadToS3(req.file);
-                uploadResponse.destination = 's3';
-                uploadResponse.url = s3Response.Location;
-            } else {
-                console.warn("S3 upload requested but S3 is not configured.");
-            }
-        }
+        // Compress and convert the image to WebP format
+        await sharp(req.file.path)
+            .resize(800) // Resize width to 800px (or adjust as needed)
+            .webp({ quality: 80 }) // Set WebP quality
+            .toFile(compressedPath);
 
-        // Upload to Azure
-        if (process.env.UPLOAD_DEST === 'azure' || process.env.UPLOAD_DEST === 'both') {
-            if (containerClient) {
-                const azureBlobUrl = await uploadToAzure(req.file);
-                uploadResponse.destination = 'azure';
-                uploadResponse.url = azureBlobUrl;
-            } else {
-                console.warn("Azure upload requested but Azure Blob Storage is not configured.");
-            }
-        }
-
-        // Fallback to local if no cloud upload or both cloud configs invalid
-        if (!process.env.UPLOAD_DEST || 
-            (process.env.UPLOAD_DEST !== 's3' && process.env.UPLOAD_DEST !== 'azure' && process.env.UPLOAD_DEST !== 'both')) {
-            uploadResponse.destination = 'local';
-            uploadResponse.url = filePath;
-        }
-
-        // Respond with image details
+        // Respond with download link for the processed image
         res.status(200).json({
-            message: 'Image uploaded successfully',
-            image_id: uploadResponse.image_id,
-            filename: uploadResponse.filename,
-            destination: uploadResponse.destination,
-            url: uploadResponse.url
+            message: 'Image uploaded, compressed, and converted successfully',
+            originalFilename,
+            compressedFilename,
+            downloadUrl: `/uploads/${compressedFilename}`
         });
 
-    } catch (uploadError) {
-        console.error('Error during upload:', uploadError.message);
+    } catch (error) {
+        console.error('Error during upload:', error.message);
         res.status(500).json({
-            message: 'Error uploading file to the cloud',
-            error: uploadError.message
+            message: 'Error processing the image',
+            error: error.message
         });
     }
 };
+
 
 // Function to list all images
 exports.listImages = (req, res) => {

@@ -13,9 +13,13 @@ app.use(express.static('public'));
 app.use('/api/images', imageRoutes);
 
 // Define a basic route to check if the server is running
+
+
+// Serve the index.html file for the root route
 app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to the Image Uploader API' });
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));

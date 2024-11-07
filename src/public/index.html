@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Compressor</title>
+</head>
+<body>
+    <h1>Image Compressor and Converter</h1>
+    <form id="uploadForm">
+        <input type="file" id="imageInput" name="image" accept="image/*" required>
+        <button type="submit">Upload & Compress</button>
+    </form>
+
+    <div id="result" style="margin-top: 20px;">
+        <!-- Download link will appear here -->
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData();
+            formData.append('image', document.getElementById('imageInput').files[0]);
+
+            const response = await fetch('/api/images/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                document.getElementById('result').innerHTML = `
+                    <p>Image compressed and converted successfully!</p>
+                    <a href="${result.downloadUrl}" download="${result.compressedFilename}">Download Compressed Image</a>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `<p>Error: ${result.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

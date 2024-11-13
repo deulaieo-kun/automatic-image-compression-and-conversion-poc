@@ -67,16 +67,50 @@ exports.uploadImage = async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
-
         const imageId = uuidv4();
         const originalFilename = req.file.filename;
         const compressedFilename = `${imageId}.webp`;
         const compressedPath = path.join(__dirname, '../public/uploads', compressedFilename);
+        const image_details = await sharp(req.file.path).metadata();
+        const {width, height} = image_details;
+        
+        const EIGHT_K = 7680; // 8K
+        const FOUR_K = 3840; // 4K
+        const TWO_K = 2048; // 2K
+        const ONE_K = 1024; // 1K
+        const HD_720P = 720; // 720p
+        const SD_480P = 480; // 480p
+        const maxDimension = Math.max(width, height);
+        let reductionPercentage = 1;
+
+        if (maxDimension >= EIGHT_K) {
+          reductionPercentage = 0.2; // Reduce TO 20% of original size
+        } else if (maxDimension >= FOUR_K) {
+          reductionPercentage = 0.4; // Reduce TO 40% of original size
+        } else if (maxDimension >= TWO_K) {
+          reductionPercentage = 0.5; // Reduce TO 50% of original size
+        } else if (maxDimension >= ONE_K) {
+          reductionPercentage = 0.75; // Reduce TO 75% of original size
+        } else if (maxDimension >= HD_720P) {
+          reductionPercentage = 0.8; // Reduce TO 80% of original size
+        } else if (maxDimension <= SD_480P) {
+          reductionPercentage = 1; // No reduction for 480p or lower
+        }
+
+        const newWidth = Math.round(width * reductionPercentage);
+        const newHeight = Math.round(height * reductionPercentage);
 
         // Compress and convert the image to WebP format
         await sharp(req.file.path)
-            .resize(800) // Resize width to 800px (or adjust as needed)
-            .webp({ quality: 80 }) // Set WebP quality
+            .resize(newWidth,newHeight) // Resize width to 800px (or adjust as needed)
+            .webp({
+                quality: 80,
+                effort: 6,
+                lossless: false,
+                nearLossless: false,
+                smartSubsample: true,
+                mixed: true,
+              }) // Set WebP quality
             .toFile(compressedPath);
 
         // Respond with download link for the processed image
@@ -86,7 +120,6 @@ exports.uploadImage = async (req, res) => {
             compressedFilename,
             downloadUrl: `/uploads/${compressedFilename}`
         });
-
     } catch (error) {
         console.error('Error during upload:', error.message);
         res.status(500).json({
